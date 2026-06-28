@@ -23,6 +23,28 @@ struct OurSimplifyCFG : public FunctionPass {
     return Count;
   }
 
+  bool foldConstantBranches(Function &F) {
+    std::vector<BranchInst *> ToRemove;
+    for (BasicBlock &BB : F) {
+      BranchInst *Br = dyn_cast<BranchInst>(BB.getTerminator());
+      if (!Br || !Br->isConditional()) {
+        continue;
+      }
+      ConstantInt *Cond = dyn_cast<ConstantInt>(Br->getCondition());
+      if (!Cond) {
+        continue;
+      }
+      BasicBlock *Taken =
+          Cond->isOne() ? Br->getSuccessor(0) : Br->getSuccessor(1);
+      BranchInst::Create(Taken, Br);
+      ToRemove.push_back(Br);
+    }
+    for (BranchInst *Br : ToRemove) {
+      Br->eraseFromParent();
+    }
+    return !ToRemove.empty();
+  }
+
   bool removeUnreachableBlocks(Function &F) {
     std::vector<BasicBlock *> ToRemove;
     bool First = true;
@@ -114,6 +136,7 @@ struct OurSimplifyCFG : public FunctionPass {
     bool LocalChange = true;
     while (LocalChange) {
       LocalChange = false;
+      LocalChange |= foldConstantBranches(F);
       LocalChange |= removeUnreachableBlocks(F);
       LocalChange |= simplifyTrivialPHIs(F);
       LocalChange |= mergeBlocks(F);
