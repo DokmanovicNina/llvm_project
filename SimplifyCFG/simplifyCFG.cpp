@@ -45,6 +45,34 @@ struct OurSimplifyCFG : public FunctionPass {
     return !ToRemove.empty();
   }
 
+  bool foldRedundantBranch(Function &F) {
+    std::vector<BranchInst *> ToRemove;
+    for (BasicBlock &BB : F) {
+      BranchInst *Br = dyn_cast<BranchInst>(BB.getTerminator());
+      if (!Br || !Br->isConditional()) {
+        continue;
+      }
+      BasicBlock *Succ0 = Br->getSuccessor(0);
+      BasicBlock *Succ1 = Br->getSuccessor(1);
+      if (isa<PHINode>(&Succ1->front())) {
+        continue;
+      }
+      BranchInst *Succ0Term = dyn_cast<BranchInst>(Succ0->getTerminator());
+      bool Succ0EmptyToSucc1 =
+          Succ0->size() == 1 &&
+          Succ0Term && Succ0Term->isUnconditional() &&
+          Succ0Term->getSuccessor(0) == Succ1;
+      if (Succ0EmptyToSucc1) {
+        BranchInst::Create(Succ1, Br);
+        ToRemove.push_back(Br);
+      }
+    }
+    for (BranchInst *Br : ToRemove) {
+      Br->eraseFromParent();
+    }
+    return !ToRemove.empty();
+  }
+
   bool removeUnreachableBlocks(Function &F) {
     std::vector<BasicBlock *> ToRemove;
     bool First = true;
@@ -137,6 +165,7 @@ struct OurSimplifyCFG : public FunctionPass {
     while (LocalChange) {
       LocalChange = false;
       LocalChange |= foldConstantBranches(F);
+      LocalChange |= foldRedundantBranch(F);
       LocalChange |= removeUnreachableBlocks(F);
       LocalChange |= simplifyTrivialPHIs(F);
       LocalChange |= mergeBlocks(F);
