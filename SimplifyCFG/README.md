@@ -1,9 +1,17 @@
 # SimplifyCFG (our-simplifycfg)
-Implementacija LLVM `SimplifyCFG` optimizacije. Ukljucene su cetiri transformacije:
-- uklanja bazicne blokove bez prethodnika tj. nedostizne,
-- eliminise trivijalne PHI cvorove (blok sa jednim prethodnikom),
-- spaja blok sa jedinstvenim prethodnikom koji ima jedinog naslednika,
-- zaobilazi prazne blokove tj. one sa bezuslovnim skokom.
-## Pokretanje (legacy PM)
+
+Pojednostavljena verzija LLVM `SimplifyCFG` optimizacije. Radi sledece
+transformacije nad grafom toka kontrole (CFG):
+
+- pretvara uslovnu granu u bezuslovnu ako je uslov grananja konstantan (true ili false).
+- uslovni skok pretvara u bezuslovni kada obe grane
+  vode na isti cilj.
+- uklanja nedostizne blokove (bez prethodnika).
+- eliminise trivijalne PHI cvorove (jedan ulaz).
+- spaja blok sa jedinstvenim prethodnikom i zaobilazi
+  prazne prolazne blokove.
+
+## Pokretanje
+
     ./bin/opt -load lib/LLVMOurSimplifyCFG.so -enable-new-pm=0 \
       -our-simplifycfg -S ulaz.ll -o izlaz.ll
