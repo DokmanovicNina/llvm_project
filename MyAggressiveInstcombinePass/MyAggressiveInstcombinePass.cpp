@@ -57,6 +57,25 @@ namespace {
 
             Value *WideValue = resolveValue(Trunc->getOperand(0));
 
+            ConstantInt *CI = dyn_cast<ConstantInt>(WideValue);
+            if (!CI) {
+                return nullptr; 
+            }
+
+            APInt Val = CI->getValue();
+            unsigned NarrowBits = Trunc->getDestTy()->getIntegerBitWidth();
+            
+            if (!Val.isIntN(NarrowBits)) {
+            
+                APInt TruncatedVal = Val.trunc(NarrowBits);
+                if (Cast->getOpcode() == Instruction::ZExt) {
+                    TruncatedVal = TruncatedVal.zext(DestTy->getIntegerBitWidth());
+                } else {
+                    TruncatedVal = TruncatedVal.sext(DestTy->getIntegerBitWidth());
+                }
+                return ConstantInt::get(DestTy, TruncatedVal);
+            }
+
 
             if (WideValue->getType() != DestTy) {
                 return nullptr;
